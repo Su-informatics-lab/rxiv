@@ -1,36 +1,14 @@
-# Academic Paper RAG API
+# RAG API
 
-A production-ready REST API for semantic search and retrieval of academic papers, built with industrial best practices and optimized for high-performance GPU acceleration. This service provides fast, accurate semantic search across large academic corpora with comprehensive metadata and content preservation.
+FastAPI service for semantic search of academic papers and clinical guidelines.
 
 ## Features
 
-### 🚀 **High-Performance Architecture**
-- **FastAPI**: Async/await architecture for high concurrency (inspired by vLLM)
-- **GPU acceleration**: Optimized for NVIDIA H100 with FP16 and TF32 optimizations
-- **Redis caching**: Sub-10ms response times for cached queries
-- **Vector databases**: ChromaDB and FAISS integration for fast similarity search
-- **Horizontal scaling**: Multi-worker deployment with load balancing
-
-### 🔍 **Advanced Search Capabilities**
-- **Multi-model embeddings**: Primary, scientific, and dense embedding models
-- **Semantic similarity**: State-of-the-art embedding models for academic content
-- **Metadata preservation**: Complete academic paper metadata and structure
-- **Content integrity**: Original document content preserved through chunking
-- **Flexible retrieval**: Configurable similarity thresholds and result counts
-
-### 📊 **Production Monitoring**
-- **Prometheus metrics**: Request rates, latency, error rates, and custom metrics
-- **Grafana dashboards**: Real-time monitoring and alerting
-- **Structured logging**: JSON-formatted logs with correlation IDs
-- **Health checks**: Comprehensive health endpoints for load balancers
-- **Performance tracking**: Detailed performance metrics and optimization insights
-
-### 🛡️ **Enterprise-Grade Reliability**
-- **Error handling**: Comprehensive error handling with proper HTTP status codes
-- **Rate limiting**: Built-in protection against abuse
-- **Graceful shutdown**: Proper resource cleanup and connection management
-- **Docker deployment**: Container-based deployment with GPU passthrough
-- **Configuration management**: Flexible configuration with environment overrides
+- **FastAPI**: Async REST API
+- **Vector search**: ChromaDB and FAISS backends
+- **Redis caching**: Fast response times
+- **GPU support**: Accelerated embeddings
+- **Multi-model**: Different embedding models available
 
 ## Installation
 
@@ -39,10 +17,10 @@ A production-ready REST API for semantic search and retrieval of academic papers
 cd rag_api
 pip install -r requirements.txt
 
-# Install processing dependencies
+# install processing dependencies
 pip install -r ../processing/requirements.txt
 
-# Start Redis (required for caching)
+# start Redis (required for caching)
 redis-server
 
 # Start the API
@@ -51,7 +29,7 @@ python main.py
 
 ### Docker Deployment (Recommended)
 ```bash
-# Full stack with monitoring
+# full stack with monitoring
 docker-compose up -d
 
 # API only
@@ -65,16 +43,16 @@ docker run --gpus all -p 8000:8000 -v $(pwd)/../processed_papers:/app/processed_
 
 #### Start the service
 ```bash
-# Development mode
+# development mode
 python main.py
 
-# Production mode  
+# production mode  
 uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 #### Search for papers
 ```bash
-# Basic search
+# basic search
 curl -X POST "http://localhost:8000/search" \
   -H "Content-Type: application/json" \
   -d '{
@@ -83,7 +61,7 @@ curl -X POST "http://localhost:8000/search" \
     "top_k": 5
   }'
 
-# Advanced search with metadata and content
+# advanced search with metadata and content
 curl -X POST "http://localhost:8000/search" \
   -H "Content-Type: application/json" \
   -d '{
@@ -105,7 +83,7 @@ from client_example import RAGClient
 async def search_papers():
     client = RAGClient("http://localhost:8000")
     
-    # Search with full metadata and content
+    # search with full metadata and content
     results = await client.search(
         query="COVID-19 vaccine effectiveness",
         model="scientific",
@@ -123,7 +101,7 @@ async def search_papers():
     
     await client.close()
 
-# Run the example
+# run the example
 asyncio.run(search_papers())
 ```
 
@@ -294,10 +272,10 @@ rag_api/
 ```json
 {
   "embedding": {
-    "batch_size": 128,     // Optimize for H100
+    "batch_size": 128,     // optimize for H100
     "normalize_embeddings": true,
     "models": {
-      "primary": "all-MiniLM-L6-v2"  // Fast model for production
+      "primary": "all-MiniLM-L6-v2"  // fast model for production
     }
   }
 }
@@ -316,10 +294,10 @@ rag_api/
 
 #### Scaling Configuration
 ```bash
-# Multi-worker deployment
+# multi-worker deployment
 uvicorn main:app --workers 8 --worker-class uvicorn.workers.UvicornWorker
 
-# Load balancing with nginx
+# load balancing with nginx
 nginx -c nginx.conf
 ```
 
@@ -327,10 +305,10 @@ nginx -c nginx.conf
 
 ### Docker Compose (Recommended)
 ```bash
-# Full production stack
+# full production stack
 docker-compose up -d
 
-# Includes:
+# includes:
 # - RAG API with GPU support
 # - Redis cache
 # - Prometheus monitoring  
@@ -363,7 +341,7 @@ spec:
 
 ### Environment Variables
 ```bash
-# Production overrides
+# production overrides
 export RAG_CONFIG_PATH=/app/config/production.json
 export REDIS_URL=redis://redis-cluster:6379  
 export LOG_LEVEL=INFO
@@ -388,7 +366,7 @@ Access at `http://localhost:3000` (admin/admin):
 
 ### Alerting
 ```yaml
-# Example alert rules
+# example alert rules
 groups:
 - name: rag_api
   rules:
@@ -425,16 +403,16 @@ groups:
 
 **Issue**: API not finding vector stores
 ```bash
-# Check path configuration
+# check path configuration
 ls -la ../processed_papers/embeddings/
-# Update rag_config.json paths
+# update rag_config.json paths
 ```
 
 **Issue**: GPU not detected
 ```bash
-# Verify GPU access
+# verify GPU access
 nvidia-smi
-# Check Docker GPU support
+# check Docker GPU support
 docker run --gpus all nvidia/cuda:12.1-base nvidia-smi
 ```
 
@@ -442,14 +420,14 @@ docker run --gpus all nvidia/cuda:12.1-base nvidia-smi
 ```bash
 # Check Redis status
 redis-cli ping
-# Update Redis URL in config
+# update Redis URL in config
 ```
 
 **Issue**: High memory usage
 ```bash
-# Monitor memory usage
+# monitor memory usage
 docker stats
-# Reduce batch sizes in config
+# reduce batch sizes in config
 ```
 
 ### Performance Debugging
@@ -464,9 +442,10 @@ redis-cli --latency
 # GPU utilization
 nvidia-smi -l 1
 
-# Container resources
+# container resources
 docker stats rag-api
 ```
+
 
 ## Integration Examples
 
@@ -474,7 +453,7 @@ docker stats rag-api
 ```python
 import requests
 
-# Search from notebook
+# search from notebook
 response = requests.post("http://localhost:8000/search", json={
     "query": "transformer architecture attention mechanism",
     "model": "scientific",
@@ -489,7 +468,7 @@ for result in results['results']:
 
 ### With Web Applications
 ```javascript
-// Frontend integration
+// frontend integration
 const searchPapers = async (query) => {
   const response = await fetch('http://localhost:8000/search', {
     method: 'POST',
@@ -509,13 +488,13 @@ const searchPapers = async (query) => {
 ```python
 # RAG-enhanced chat
 async def enhanced_chat(user_query):
-    # Search relevant papers
+    # search relevant papers
     search_results = await rag_client.search(user_query, top_k=5)
     
-    # Build context
+    # build context
     context = "\n".join([r['text'] for r in search_results['results']])
     
-    # Send to LLM with context
+    # send to LLM with context
     prompt = f"Context: {context}\n\nQuestion: {user_query}"
     return await llm_client.generate(prompt)
 ```
@@ -529,4 +508,4 @@ For questions or issues with the RAG API:
 
 ## License
 
-This API is designed for academic research purposes. Please respect the licensing terms of the underlying models and ensure compliance with your institution's data usage policies.
+This API is designed for academic research purposes. Please respect the licensing terms of the underlying models.
