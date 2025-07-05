@@ -78,7 +78,7 @@ cd rag_api && pip install -r requirements.txt && cd ..
 ## Project Structure
 
 ```
-rxiv/
+delphea_kb/
 ├── rxiv_harvest/          # Academic papers
 ├── guideline_harvest/     # Clinical guidelines  
 ├── processing/            # PDF to embeddings
