@@ -1,4 +1,26 @@
-# download_pdfs.py
+"""PDF downloader for bioRxiv and medRxiv preprints.
+
+This module provides robust PDF downloading capabilities with:
+- Multi-threaded downloads with configurable thread pools
+- Comprehensive error handling and retry logic
+- PDF validation and integrity checking with SHA256 hashing
+- Resume capability for interrupted downloads
+- Detailed logging and progress tracking
+- Rate limiting for respectful server usage
+
+Input:
+    - Metadata entries from JSONL files containing DOIs and versions
+    - Source name (biorxiv/medrxiv) for URL construction
+    - Output directory for organized PDF storage
+    - Resume flag for continuing interrupted downloads
+
+Output:
+    - Downloaded and validated PDF files organized by source
+    - Detailed log files with download status and errors
+    - Success/failure tracking files with hashes and statistics
+    - Progress reports with real-time download statistics
+"""
+
 import os
 import json
 import time
@@ -12,6 +34,7 @@ from tqdm import tqdm
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from typing import List, Dict, Any, Tuple, Optional
 
 MAX_RETRIES = 5
 NUM_THREADS = 8  # Reduced to be more respectful
@@ -19,8 +42,15 @@ TIMEOUT = 30
 RETRY_BACKOFF = 2
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for download
 
-def setup_logging(log_file):
-    """Setup logging configuration"""
+def setup_logging(log_file: str) -> logging.Logger:
+    """Setup logging configuration with file and console handlers.
+    
+    Args:
+        log_file: Path to log file
+        
+    Returns:
+        Configured logger instance
+    """
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
@@ -31,8 +61,12 @@ def setup_logging(log_file):
     )
     return logging.getLogger(__name__)
 
-def create_session():
-    """Create a requests session with retry strategy"""
+def create_session() -> requests.Session:
+    """Create a requests session with retry strategy.
+    
+    Returns:
+        Configured session with exponential backoff retry strategy
+    """
     session = requests.Session()
     retry_strategy = Retry(
         total=MAX_RETRIES,
@@ -45,25 +79,55 @@ def create_session():
     session.mount("https://", adapter)
     return session
 
-def safe_doi_to_filename(doi):
-    """Convert DOI to safe filename"""
+def safe_doi_to_filename(doi: str) -> str:
+    """Convert DOI to safe filename by URL encoding.
+    
+    Args:
+        doi: DOI string to convert
+        
+    Returns:
+        URL-encoded filename safe for filesystem
+    """
     return quote(doi.replace("/", "_"), safe="")
 
-def construct_pdf_url(source, doi, version):
-    """Construct PDF download URL"""
+def construct_pdf_url(source: str, doi: str, version: str) -> str:
+    """Construct PDF download URL for given source, DOI, and version.
+    
+    Args:
+        source: Source name (biorxiv/medrxiv)
+        doi: DOI of the paper
+        version: Version number
+        
+    Returns:
+        Complete URL to PDF file
+    """
     base = "https://www.biorxiv.org" if source == "biorxiv" else "https://www.medrxiv.org"
     return f"{base}/content/{doi}v{version}.full.pdf"
 
-def calculate_file_hash(file_path):
-    """Calculate SHA256 hash of a file"""
+def calculate_file_hash(file_path: Path) -> str:
+    """Calculate SHA256 hash of a file for integrity verification.
+    
+    Args:
+        file_path: Path to file to hash
+        
+    Returns:
+        SHA256 hash as hexadecimal string
+    """
     hash_sha256 = hashlib.sha256()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_sha256.update(chunk)
     return hash_sha256.hexdigest()
 
-def validate_pdf(file_path):
-    """Validate that downloaded file is a valid PDF"""
+def validate_pdf(file_path: Path) -> bool:
+    """Validate that downloaded file is a valid PDF by checking header.
+    
+    Args:
+        file_path: Path to file to validate
+        
+    Returns:
+        True if file is a valid PDF, False otherwise
+    """
     try:
         with open(file_path, "rb") as f:
             header = f.read(4)
@@ -71,8 +135,20 @@ def validate_pdf(file_path):
     except Exception:
         return False
 
-def download_pdf(entry, source, out_dir, session, logger):
-    """Download a single PDF with comprehensive error handling"""
+def download_pdf(entry: Dict[str, Any], source: str, out_dir: str, 
+                session: requests.Session, logger: logging.Logger) -> Dict[str, Any]:
+    """Download a single PDF with comprehensive error handling and validation.
+    
+    Args:
+        entry: Metadata entry containing doi and version
+        source: Source name (biorxiv/medrxiv)
+        out_dir: Output directory for PDF files
+        session: Configured requests session
+        logger: Logger instance
+        
+    Returns:
+        Dictionary with download status, DOI, filename, and optional hash/size
+    """
     doi = entry["doi"]
     version = entry["version"]
     filename = f"{safe_doi_to_filename(doi)}v{version}.pdf"

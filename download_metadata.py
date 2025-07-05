@@ -1,4 +1,25 @@
-# download_metadata.py
+"""Metadata downloader for bioRxiv and medRxiv preprints.
+
+This module provides robust metadata downloading capabilities with:
+- Comprehensive error handling with exponential backoff retry
+- Resume capability for interrupted downloads
+- Data validation and integrity checking
+- Detailed logging with failed operation tracking
+- Rate limiting for respectful API usage
+
+Input:
+    - Source name (biorxiv/medrxiv)
+    - Date range (start_date to end_date)
+    - Output file path for JSONL metadata
+    - Resume flag for continuing interrupted downloads
+
+Output:
+    - JSONL files containing validated metadata entries
+    - Detailed log files with operation status and errors
+    - Failed chunk tracking files for recovery
+    - Statistics on successful vs failed downloads
+"""
+
 import requests
 import time
 import json
@@ -8,6 +29,7 @@ from tqdm import tqdm
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from typing import Tuple, List, Dict, Any, Optional
 
 API_BASE = "https://api.biorxiv.org/details"
 CHUNK_SIZE = 100  # max allowed
@@ -17,8 +39,15 @@ MAX_RETRIES = 5
 RETRY_BACKOFF = 2
 TIMEOUT = 30
 
-def setup_logging(log_file):
-    """Setup logging configuration"""
+def setup_logging(log_file: str) -> logging.Logger:
+    """Setup logging configuration with file and console handlers.
+    
+    Args:
+        log_file: Path to log file
+        
+    Returns:
+        Configured logger instance
+    """
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
@@ -29,8 +58,12 @@ def setup_logging(log_file):
     )
     return logging.getLogger(__name__)
 
-def create_session():
-    """Create a requests session with retry strategy"""
+def create_session() -> requests.Session:
+    """Create a requests session with retry strategy.
+    
+    Returns:
+        Configured session with exponential backoff retry strategy
+    """
     session = requests.Session()
     retry_strategy = Retry(
         total=MAX_RETRIES,
@@ -43,8 +76,23 @@ def create_session():
     session.mount("https://", adapter)
     return session
 
-def get_total_count(session, source, start_date, end_date, logger):
-    """Get total count of available papers"""
+def get_total_count(session: requests.Session, source: str, start_date: str, 
+                   end_date: str, logger: logging.Logger) -> int:
+    """Get total count of available papers for a source and date range.
+    
+    Args:
+        session: Configured requests session
+        source: Source name (biorxiv/medrxiv)
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        logger: Logger instance
+        
+    Returns:
+        Total number of papers available
+        
+    Raises:
+        Exception: If API request fails
+    """
     url = f"{API_BASE}/{source}/{start_date}/{end_date}/0"
     try:
         response = session.get(url, timeout=TIMEOUT)
@@ -57,8 +105,24 @@ def get_total_count(session, source, start_date, end_date, logger):
         logger.error(f"Failed to get total count for {source}: {e}")
         raise
 
-def fetch_chunk(session, source, start_date, end_date, offset, logger):
-    """Fetch a single chunk of data with retry logic"""
+def fetch_chunk(session: requests.Session, source: str, start_date: str, 
+               end_date: str, offset: int, logger: logging.Logger) -> List[Dict[str, Any]]:
+    """Fetch a single chunk of metadata with retry logic.
+    
+    Args:
+        session: Configured requests session
+        source: Source name (biorxiv/medrxiv)
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        offset: Pagination offset
+        logger: Logger instance
+        
+    Returns:
+        List of metadata entries
+        
+    Raises:
+        Exception: If all retry attempts fail
+    """
     url = f"{API_BASE}/{source}/{start_date}/{end_date}/{offset}"
     
     for attempt in range(MAX_RETRIES):
@@ -85,8 +149,16 @@ def fetch_chunk(session, source, start_date, end_date, offset, logger):
                 logger.error(f"All retry attempts failed for {source} offset {offset}")
                 raise
 
-def validate_entry(entry, logger):
-    """Validate a metadata entry"""
+def validate_entry(entry: Dict[str, Any], logger: logging.Logger) -> bool:
+    """Validate a metadata entry for required fields.
+    
+    Args:
+        entry: Metadata entry dictionary
+        logger: Logger instance
+        
+    Returns:
+        True if entry is valid, False otherwise
+    """
     required_fields = ['doi', 'title', 'authors', 'date', 'version']
     for field in required_fields:
         if field not in entry or not entry[field]:
@@ -94,8 +166,20 @@ def validate_entry(entry, logger):
             return False
     return True
 
-def fetch_all(source, start_date, end_date, out_file, resume=False):
-    """Fetch all metadata with comprehensive error handling and logging"""
+def fetch_all(source: str, start_date: str, end_date: str, out_file: str, 
+              resume: bool = False) -> Tuple[int, List[int]]:
+    """Fetch all metadata with comprehensive error handling and logging.
+    
+    Args:
+        source: Source name (biorxiv/medrxiv)
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        out_file: Output file path for JSONL metadata
+        resume: Whether to resume from existing file
+        
+    Returns:
+        Tuple of (successful_entries_count, failed_chunk_offsets)
+    """
     log_file = f"logs/metadata_{source}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     Path(log_file).parent.mkdir(parents=True, exist_ok=True)
     logger = setup_logging(log_file)

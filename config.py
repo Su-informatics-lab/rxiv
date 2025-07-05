@@ -1,4 +1,21 @@
-# config.py
+"""Configuration management for the rxiv corpus downloader.
+
+This module provides centralized configuration management with support for:
+- JSON-based configuration files with sensible defaults
+- Environment variable overrides and command-line integration
+- Automatic directory creation and path management
+- Hierarchical configuration merging
+
+Input:
+    - config.json file (optional, defaults created if missing)
+    - Environment variables and command-line overrides
+
+Output:
+    - Unified configuration object accessible throughout the application
+    - Auto-generated config.json with default settings
+    - Created directory structure as specified in paths configuration
+"""
+
 import json
 from pathlib import Path
 from typing import Dict, Any
@@ -72,8 +89,16 @@ class Config:
             else:
                 base[key] = value
     
-    def get(self, key_path: str, default=None):
-        """Get configuration value using dot notation (e.g., 'api.timeout')"""
+    def get(self, key_path: str, default=None) -> Any:
+        """Get configuration value using dot notation.
+        
+        Args:
+            key_path: Dot-separated path to configuration value (e.g., 'api.timeout')
+            default: Default value to return if key not found
+            
+        Returns:
+            Configuration value or default if not found
+        """
         keys = key_path.split('.')
         value = self.config
         try:
@@ -83,8 +108,13 @@ class Config:
         except (KeyError, TypeError):
             return default
     
-    def set(self, key_path: str, value):
-        """Set configuration value using dot notation"""
+    def set(self, key_path: str, value: Any) -> None:
+        """Set configuration value using dot notation.
+        
+        Args:
+            key_path: Dot-separated path to configuration value
+            value: Value to set
+        """
         keys = key_path.split('.')
         config_section = self.config
         
@@ -96,17 +126,25 @@ class Config:
         config_section[keys[-1]] = value
         self.save_config()
     
-    def get_sources(self):
-        """Get enabled sources with their configurations"""
+    def get_sources(self) -> Dict[str, Dict[str, Any]]:
+        """Get enabled sources with their configurations.
+        
+        Returns:
+            Dictionary mapping source names to their configuration objects
+        """
         return {name: config for name, config in self.config["sources"].items() 
                 if config.get("enabled", True)}
     
-    def get_end_date(self):
-        """Get end date for downloads"""
+    def get_end_date(self) -> str:
+        """Get end date for downloads.
+        
+        Returns:
+            End date string in YYYY-MM-DD format
+        """
         return self.config.get("end_date", "2025-07-01")
     
-    def create_directories(self):
-        """Create necessary directories"""
+    def create_directories(self) -> None:
+        """Create necessary directories as specified in configuration."""
         for dir_key in ["data_dir", "pdf_dir", "log_dir"]:
             dir_path = Path(self.get(f"paths.{dir_key}"))
             dir_path.mkdir(parents=True, exist_ok=True)
