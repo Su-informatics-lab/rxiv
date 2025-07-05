@@ -148,7 +148,7 @@ class GuidelineHarvester:
 
         # initialize crawler
         self.crawler = AsyncWebCrawler(**self.config["crawl4ai_config"])
-        await self.crawler.astart()
+        await self.crawler.start()
 
         self.logger.info("✅ Harvester initialization complete")
 
@@ -800,7 +800,7 @@ class GuidelineHarvester:
     async def cleanup(self):
         """Cleanup resources."""
         if self.crawler:
-            await self.crawler.aclose()
+            await self.crawler.close()
 
         if self.session:
             await self.session.close()
