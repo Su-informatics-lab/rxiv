@@ -218,8 +218,18 @@ def download_pdf(entry: Dict[str, Any], source: str, out_dir: str,
     
     return {"status": "failed", "doi": doi, "file": filename}
 
-def load_entries(path):
-    """Load metadata entries from JSONL file"""
+def load_entries(path: str) -> List[Dict[str, Any]]:
+    """Load metadata entries from JSONL file with validation.
+    
+    Args:
+        path: Path to JSONL metadata file
+        
+    Returns:
+        List of validated metadata entries containing doi and version
+        
+    Raises:
+        FileNotFoundError: If metadata file doesn't exist
+    """
     entries = []
     try:
         with open(path) as f:
@@ -237,8 +247,17 @@ def load_entries(path):
         raise
     return entries
 
-def save_results(results, source, log_dir):
-    """Save download results to files"""
+def save_results(results: List[Dict[str, Any]], source: str, log_dir: str) -> Tuple[int, int]:
+    """Save download results to separate success and failure files.
+    
+    Args:
+        results: List of download result dictionaries
+        source: Source name for file naming
+        log_dir: Directory to save result files
+        
+    Returns:
+        Tuple of (successful_count, failed_count)
+    """
     success_file = Path(log_dir) / f"pdf_success_{source}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     failed_file = Path(log_dir) / f"pdf_failed_{source}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
@@ -253,8 +272,19 @@ def save_results(results, source, log_dir):
     
     return len(successful), len(failed)
 
-def run_parallel(entries, source, out_dir, resume=False):
-    """Run parallel PDF downloads with comprehensive logging"""
+def run_parallel(entries: List[Dict[str, Any]], source: str, out_dir: str, 
+                resume: bool = False) -> List[Dict[str, Any]]:
+    """Run parallel PDF downloads with comprehensive logging and progress tracking.
+    
+    Args:
+        entries: List of metadata entries to download
+        source: Source name (biorxiv/medrxiv)
+        out_dir: Output directory for PDF files
+        resume: Whether to skip existing files
+        
+    Returns:
+        List of download result dictionaries with status, DOI, and file info
+    """
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
     log_file = log_dir / f"pdf_{source}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
