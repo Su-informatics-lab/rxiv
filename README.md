@@ -1,52 +1,91 @@
-# Rxiv Corpus Downloader
+# Knowledge Base for DelPHEA
 
-A pipeline to download metadata and PDFs from bioRxiv and medRxiv with error handling, logging, and resume capabilities.
+End-to-end system for harvesting, processing, and serving academic papers through a RAG API.
 
-## Features
+## Architecture
 
-- **Comprehensive Downloads**: Fetches metadata and PDFs from bioRxiv/medRxiv
-- **Resumable Design**: Automatically resume interrupted downloads
-- **Error Handling**: Retry logic with exponential backoff
-- **Data Validation**: PDF validation and integrity checks
-- **Detailed Logging**: Comprehensive logs for monitoring and troubleshooting
-## Usage
-
-### Basic Usage
-```bash
-pip install -r requirements.txt
-python main.py
+```
+HARVEST → PROCESSING → RAG API
 ```
 
-### Common Options
+## Components
+
+### [Academic Papers Harvest](./rxiv_harvest/README.md)
+Downloads papers from bioRxiv and medRxiv.
+
+### [Clinical Guidelines Harvest](./guideline_harvest/README.md)
+Harvests US clinical guidelines using crawl4ai.
+
+### Quick Start
 ```bash
-# download only metadata
-python main.py --metadata-only
+# bio/medRxiv papers
+cd rxiv_harvest && python download.py --source biorxiv
 
-# download only PDFs  
-python main.py --pdfs-only
-
-# process specific source
-python main.py --source biorxiv
-
-# resume interrupted downloads
-python main.py --resume
-
-# custom date range
-python main.py --start-date 2020-01-01 --end-date 2024-12-31
+# clinical guidelines  
+cd guideline_harvest && python crawl.py --sources high_priority
 ```
 
-## Output
+### [Processing Module](./processing/README.md)
+Converts PDFs to embeddings using Docling and ChromaDB.
 
-- **Metadata**: Saved as JSONL files in `data/` directory
-- **PDFs**: Organized by source in `pdfs/` directory  
-- **Logs**: Detailed logs and error tracking in `logs/` directory
+### [RAG API](./rag_api/README.md)
+FastAPI service for semantic search with Redis caching.
 
-Files are automatically validated and resume capability handles interruptions.
+## Full Pipeline
+
+1. **Harvest**: Download papers and guidelines
+2. **Process**: Convert to embeddings  
+3. **Serve**: Start API for search
+
+```bash
+# 1. harvest
+cd rxiv_harvest && python download.py
+cd ../guideline_harvest && python crawl.py --sources all
+
+# 2. process  
+cd ../processing && python process_papers.py ../rxiv_harvest/data/pdfs/biorxiv/ processed_papers/
+
+# 3. serve
+cd ../rag_api && docker-compose up -d
+```
+
+## Use Cases
+
+- Academic research and literature review
+- RAG-enhanced chatbots  
+- Medical research support
+- Literature trend analysis
+
+## Requirements
+
+- Python 3.10+
+- NVIDIA GPU (recommended)
+- Docker & Docker Compose
+
+## Installation
+
+```bash
+git clone https://github.com/your-org/rxiv.git
+cd rxiv
+
+# Install each component
+cd rxiv_harvest && pip install -r requirements.txt && cd ..
+cd guideline_harvest && pip install -r requirements.txt && cd ..
+cd processing && pip install -r requirements.txt && cd ..  
+cd rag_api && pip install -r requirements.txt && cd ..
+```
+
+## Project Structure
+
+```
+rxiv/
+├── rxiv_harvest/          # Academic papers
+├── guideline_harvest/     # Clinical guidelines  
+├── processing/            # PDF to embeddings
+├── rag_api/              # Search API
+└── README.md
+```
 
 ## Contact
 
-For questions or issues, please contact:
-- **Haining Wang** - hw56@iu.edu
-
-## License
-MIT
+Haining Wang (hw56@iu.edu)
