@@ -1,0 +1,47 @@
+{
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "workers": 1,
+    "reload": false,
+    "title": "Academic Paper RAG API",
+    "version": "1.0.0"
+  },
+  
+  "embedding": {
+    "models": {
+      "primary": "all-MiniLM-L6-v2",
+      "scientific": "allenai/scibert_scivocab_uncased", 
+      "dense": "sentence-transformers/all-mpnet-base-v2"
+    },
+    "batch_size": 128,
+    "normalize_embeddings": true
+  },
+  
+  "vector_stores": {
+    "chromadb_path": "../processed_papers/embeddings",
+    "default_collection": "academic_papers"
+  },
+  
+  "cache": {
+    "redis_url": "redis://localhost:6379",
+    "ttl": 3600,
+    "key_prefix": "rag_api:"
+  },
+  
+  "content": {
+    "content_dir": "../processed_papers/extracted", 
+    "chunk_dir": "../processed_papers/chunked"
+  },
+  
+  "performance": {
+    "max_concurrent_requests": 100,
+    "request_timeout": 30.0,
+    "cache_query_results": true
+  },
+  
+  "logging": {
+    "level": "INFO",
+    "format": "json"
+  }
+}
