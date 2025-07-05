@@ -40,7 +40,8 @@ class GuidelineHarvester:
         Args:
             config: Configuration dictionary for harvesting settings
         """
-        self.config = config or self._get_default_config()
+        default_config = self._get_default_config()
+        self.config = {**default_config, **(config or {})}
         self.console = Console()
         self.logger = self._setup_logging()
         self.metadata_extractor = MetadataExtractor()
@@ -48,7 +49,7 @@ class GuidelineHarvester:
         self.session: Optional[aiohttp.ClientSession] = None
         self.crawler: Optional[AsyncWebCrawler] = None
 
-        # Statistics tracking
+        # statistics tracking
         self.stats = {
             "sources_processed": 0,
             "guidelines_found": 0,
