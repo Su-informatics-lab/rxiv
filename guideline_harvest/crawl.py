@@ -27,8 +27,11 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-from sources import (CLINICAL_GUIDELINE_SOURCES, get_high_priority_sources,
-                     get_sources_by_specialty)
+from sources import (
+    CLINICAL_GUIDELINE_SOURCES,
+    get_high_priority_sources,
+    get_sources_by_specialty,
+)
 
 
 class GuidelineHarvester:
