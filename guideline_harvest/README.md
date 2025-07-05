@@ -2,6 +2,8 @@
 
 Harvests clinical guidelines from major US medical organizations using crawl4ai web crawling.
 
+> ⚙️ For HPC systems (e.g., IU Quartz), we recommend using Apptainer (formerly Singularity) for full browser support.
+
 ## Features
 
 - **Web crawling**: Uses crawl4ai with JavaScript support
@@ -10,12 +12,31 @@ Harvests clinical guidelines from major US medical organizations using crawl4ai 
 - **PDF processing**: Multi-library validation and text extraction
 - **Quality assessment**: Automatic relevance scoring
 
-## Installation
+## Setup (with Apptainer)
+
+First, set up a containerized environment with Playwright support:
 
 ```bash
-cd guideline_harvest
-pip install -r requirements.txt
+# 1. load container
+module load apptainer
+
+# 2. pull container
+apptainer pull playwright.sif docker://mcr.microsoft.com/playwright/python:v1.47.0-jammy
+
+# 3. enter the container and install dependencies
+apptainer shell --bind $(pwd) playwright.sif
+
+# inside container:
+pip install -r guideline_harvest/requirements.txt
 python -m spacy download en_core_web_sm
+playwright install
+```
+
+Note: If `playwright` is not found after installation, you may need to add your local bin to PATH:
+
+```bash
+echo 'export PATH=$HOME/.local/bin:$PATH' > container_env.sh
+source container_env.sh
 playwright install
 ```
 
