@@ -21,32 +21,29 @@ First, set up a containerized environment with Playwright support:
 module load apptainer
 
 # 2. pull container
-apptainer pull playwright.sif docker://mcr.microsoft.com/playwright/python:v1.47.0-jammy
+apptainer pull playwright.sif docker://mcr.microsoft.com/playwright/python:v1.52.0-jammy
 
 # 3. enter the container and install dependencies
 apptainer shell --bind $(pwd) playwright.sif
 
+# 4. set up environment variables
+echo 'export PATH=$HOME/.local/bin:$PATH' > container_env.sh
+echo 'export PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright' >> container_env.sh
+source container_env.sh
+
 # inside container:
 pip install -r guideline_harvest/requirements.txt
 python -m spacy download en_core_web_sm
-playwright install
-```
-
-Note: If `playwright` is not found after installation, you may need to add your local bin to PATH:
-
-```bash
-echo 'export PATH=$HOME/.local/bin:$PATH' > container_env.sh
-source container_env.sh
-playwright install
+playwright install  # we use isntall v1.52/1.53
 ```
 
 ## Usage
 
 ```bash
-# all sources, by default
-python crawl.py --sources all
-
 # basic use
+python crawl.py
+
+# cardiology guidelines only
 python crawl.py --sources cardiology
 
 # custom settings
