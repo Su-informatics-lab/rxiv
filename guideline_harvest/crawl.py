@@ -818,9 +818,8 @@ class GuidelineHarvester:
 @click.option(
     "--validate-pdfs/--no-validate-pdfs", default=True, help="Validate downloaded PDFs"
 )
-async def main(sources, max_concurrent, delay, output_dir, resume, validate_pdfs):
-    """Clinical Guidelines Harvester - Comprehensive guideline collection system."""
-
+def main(sources, max_concurrent, delay, output_dir, resume, validate_pdfs):
+    """Entry point for CLI, dispatches async runner."""
     config = {
         "max_concurrent_sources": max_concurrent,
         "request_delay": delay,
@@ -828,7 +827,11 @@ async def main(sources, max_concurrent, delay, output_dir, resume, validate_pdfs
         "resume_mode": resume,
         "validate_pdfs": validate_pdfs,
     }
+    asyncio.run(run(sources, config))
 
+
+async def run(sources: str, config: Dict[str, Any]):
+    """Clinical Guidelines Harvester - Async runner."""
     harvester = GuidelineHarvester(config)
 
     try:
@@ -836,7 +839,7 @@ async def main(sources, max_concurrent, delay, output_dir, resume, validate_pdfs
         results = await harvester.harvest_all_sources(sources)
 
         print(f"\n🎉 Harvest completed!")
-        print(f"📁 Results saved to: {output_dir}")
+        print(f"📁 Results saved to: {config['output_dir']}")
         print(
             f"📄 Guidelines found: {results['statistics']['summary']['guidelines_found']}"
         )
@@ -853,4 +856,4 @@ async def main(sources, max_concurrent, delay, output_dir, resume, validate_pdfs
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
