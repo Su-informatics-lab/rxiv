@@ -19,10 +19,10 @@ Harvests US clinical guidelines using crawl4ai.
 ### Quick Start
 ```bash
 # bio/medRxiv papers
-cd rxiv_harvest && python download.py --source biorxiv
+cd rxiv_harvest && python download.py
 
 # clinical guidelines  
-cd guideline_harvest && python crawl.py --sources high_priority
+cd guideline_harvest && python crawl.py --sources all
 ```
 
 ### [Processing Module](./processing/README.md)
