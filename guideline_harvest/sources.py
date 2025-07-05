@@ -379,6 +379,233 @@ CLINICAL_GUIDELINE_SOURCES = {
         crawl_config={"max_depth": 2, "follow_links": True, "delay": 1.5},
         priority=2,
     ),
+    "uspstf": GuidelineSource(
+        name="U.S. Preventive Services Task Force",
+        abbreviation="USPSTF",
+        base_url="https://www.uspreventiveservicestaskforce.org",
+        organization_type=OrganizationType.GOVERNMENT,
+        specialties=["preventive_care", "screening", "primary_care"],
+        guideline_types=[GuidelineType.SCREENING, GuidelineType.PREVENTION],
+        search_patterns=["/recommendations/", "/Page/", "/uspstf/"],
+        pdf_patterns=[r"\.pdf$", r"recommendation.*\.pdf", r"final.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "grade": r"Grade\s+([A-DF])",
+            "recommendation": r"Recommendation:\s*(.*?)(?:\n|<)",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 1.5},
+        priority=1,
+    ),
+    "nih": GuidelineSource(
+        name="National Institutes of Health",
+        abbreviation="NIH",
+        base_url="https://www.nih.gov",
+        organization_type=OrganizationType.GOVERNMENT,
+        specialties=["research", "clinical_trials", "biomedical_research"],
+        guideline_types=[GuidelineType.TREATMENT, GuidelineType.DIAGNOSIS],
+        search_patterns=["/health-information/", "/clinical-trials/", "/research/"],
+        pdf_patterns=[r"\.pdf$", r"clinical.*\.pdf", r"research.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "institute": r"(NHLBI|NIDDK|NIMH|NCI|NIAID|NICHD)",
+            "date": r"(\d{1,2}/\d{1,2}/\d{4}|\w+\s+\d{1,2},\s+\d{4})",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 1.5},
+        priority=2,
+    ),
+    "acp": GuidelineSource(
+        name="American College of Physicians",
+        abbreviation="ACP",
+        base_url="https://www.acponline.org",
+        organization_type=OrganizationType.PROFESSIONAL_SOCIETY,
+        specialties=["internal_medicine", "primary_care"],
+        guideline_types=[
+            GuidelineType.DIAGNOSIS,
+            GuidelineType.TREATMENT,
+            GuidelineType.MANAGEMENT,
+        ],
+        search_patterns=["/clinical-information/guidelines/", "/clinical-guidance/"],
+        pdf_patterns=[r"\.pdf$", r"guideline.*\.pdf", r"clinical.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "recommendation": r"Recommendation\s+(\d+)",
+            "grade": r"Grade:\s*(.*?)(?:\n|<)",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.0},
+        priority=1,
+    ),
+    "apa_psych": GuidelineSource(
+        name="American Psychiatric Association",
+        abbreviation="APA",
+        base_url="https://www.psychiatry.org",
+        organization_type=OrganizationType.PROFESSIONAL_SOCIETY,
+        specialties=["psychiatry", "mental_health", "behavioral_health"],
+        guideline_types=[GuidelineType.DIAGNOSIS, GuidelineType.TREATMENT],
+        search_patterns=[
+            "/psychiatrists/practice/clinical-practice-guidelines/",
+            "/practice/",
+        ],
+        pdf_patterns=[r"\.pdf$", r"guideline.*\.pdf", r"practice.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "dsm": r"DSM-5.*?(\d+\.\d+)",
+            "disorder": r"Disorder:\s*(.*?)(?:\n|<)",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.0},
+        priority=2,
+    ),
+    "nccn": GuidelineSource(
+        name="National Comprehensive Cancer Network",
+        abbreviation="NCCN",
+        base_url="https://www.nccn.org",
+        organization_type=OrganizationType.CONSORTIUM,
+        specialties=["oncology", "cancer", "hematology"],
+        guideline_types=[
+            GuidelineType.DIAGNOSIS,
+            GuidelineType.TREATMENT,
+            GuidelineType.SCREENING,
+        ],
+        search_patterns=["/guidelines/", "/professionals/physician_gls/"],
+        pdf_patterns=[r"\.pdf$", r"guideline.*\.pdf", r"nccn.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "version": r"Version\s+(\d+\.\d{4})",
+            "cancer_type": r"NCCN.*?(.*?)\s+Guidelines",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.5},
+        priority=1,
+    ),
+    "aafp": GuidelineSource(
+        name="American Academy of Family Physicians",
+        abbreviation="AAFP",
+        base_url="https://www.aafp.org",
+        organization_type=OrganizationType.PROFESSIONAL_SOCIETY,
+        specialties=["family_medicine", "primary_care"],
+        guideline_types=[
+            GuidelineType.DIAGNOSIS,
+            GuidelineType.TREATMENT,
+            GuidelineType.PREVENTION,
+        ],
+        search_patterns=["/family-physician/patient-care/clinical-recommendations/"],
+        pdf_patterns=[r"\.pdf$", r"recommendation.*\.pdf", r"clinical.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "strength": r"Strength of Recommendation:\s*([ABC])",
+            "evidence": r"Level of Evidence:\s*(\d+)",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.0},
+        priority=2,
+    ),
+    "aan": GuidelineSource(
+        name="American Academy of Neurology",
+        abbreviation="AAN",
+        base_url="https://www.aan.com",
+        organization_type=OrganizationType.PROFESSIONAL_SOCIETY,
+        specialties=["neurology", "neurological_disorders"],
+        guideline_types=[
+            GuidelineType.DIAGNOSIS,
+            GuidelineType.TREATMENT,
+            GuidelineType.MANAGEMENT,
+        ],
+        search_patterns=["/Guidelines/", "/practice-guidelines/"],
+        pdf_patterns=[r"\.pdf$", r"guideline.*\.pdf", r"practice.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "level": r"Level\s+([ABC])",
+            "neurological": r"(epilepsy|dementia|stroke|multiple sclerosis|parkinson)",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.0},
+        priority=2,
+    ),
+    "asa": GuidelineSource(
+        name="American Society of Anesthesiologists",
+        abbreviation="ASA",
+        base_url="https://www.asahq.org",
+        organization_type=OrganizationType.PROFESSIONAL_SOCIETY,
+        specialties=["anesthesiology", "perioperative_care", "pain_management"],
+        guideline_types=[GuidelineType.PROCEDURE, GuidelineType.MANAGEMENT],
+        search_patterns=["/standards-and-guidelines/", "/practice-management/"],
+        pdf_patterns=[r"\.pdf$", r"guideline.*\.pdf", r"standard.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "standard": r"Standard\s+(\w+)",
+            "effective": r"Effective:\s*(\d{1,2}/\d{1,2}/\d{4})",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.0},
+        priority=3,
+    ),
+    "clsi": GuidelineSource(
+        name="Clinical and Laboratory Standards Institute",
+        abbreviation="CLSI",
+        base_url="https://clsi.org",
+        organization_type=OrganizationType.CONSORTIUM,
+        specialties=["laboratory_medicine", "diagnostics", "testing_standards"],
+        guideline_types=[GuidelineType.PROCEDURE, GuidelineType.DIAGNOSIS],
+        search_patterns=["/standards/", "/documents/"],
+        pdf_patterns=[r"\.pdf$", r"standard.*\.pdf", r"guideline.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "document_id": r"(EP\d+|GP\d+|M\d+)",
+            "edition": r"(\d+)(?:st|nd|rd|th)\s+Edition",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.0},
+        priority=3,
+    ),
+    "jointcommission": GuidelineSource(
+        name="The Joint Commission",
+        abbreviation="TJC",
+        base_url="https://www.jointcommission.org",
+        organization_type=OrganizationType.CONSORTIUM,
+        specialties=["hospital_safety", "accreditation", "quality_improvement"],
+        guideline_types=[GuidelineType.MANAGEMENT, GuidelineType.PROCEDURE],
+        search_patterns=["/standards/", "/resources/", "/patient-safety/"],
+        pdf_patterns=[r"\.pdf$", r"standard.*\.pdf", r"manual.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "element": r"Element of Performance\s*(\d+)",
+            "effective": r"Effective:\s*(\w+\s+\d{1,2},\s+\d{4})",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.0},
+        priority=3,
+    ),
+    "ecri": GuidelineSource(
+        name="ECRI Guidelines Trust",
+        abbreviation="ECRI",
+        base_url="https://guidelines.ecri.org",
+        organization_type=OrganizationType.CONSORTIUM,
+        specialties=["cross_specialty", "evidence_based_medicine"],
+        guideline_types=[
+            GuidelineType.DIAGNOSIS,
+            GuidelineType.TREATMENT,
+            GuidelineType.MANAGEMENT,
+        ],
+        search_patterns=["/", "/search/", "/browse/"],
+        pdf_patterns=[r"\.pdf$", r"guideline.*\.pdf", r"evidence.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "organization": r"Source:\s*(.*?)(?:\n|<)",
+            "updated": r"Updated:\s*(\w+\s+\d{4})",
+        },
+        crawl_config={"max_depth": 1, "follow_links": True, "delay": 2.5},
+        priority=2,
+    ),
+    "icer": GuidelineSource(
+        name="Institute for Clinical and Economic Review",
+        abbreviation="ICER",
+        base_url="https://icer.org",
+        organization_type=OrganizationType.CONSORTIUM,
+        specialties=["health_economics", "value_based_care", "cost_effectiveness"],
+        guideline_types=[GuidelineType.MANAGEMENT],
+        search_patterns=["/assessments/", "/reports/", "/evidence-reports/"],
+        pdf_patterns=[r"\.pdf$", r"report.*\.pdf", r"assessment.*\.pdf"],
+        metadata_patterns={
+            "title": r"<title>(.*?)</title>",
+            "therapeutic_area": r"Therapeutic Area:\s*(.*?)(?:\n|<)",
+            "publication_date": r"Publication Date:\s*(\w+\s+\d{1,2},\s+\d{4})",
+        },
+        crawl_config={"max_depth": 2, "follow_links": True, "delay": 2.0},
+        priority=3,
+    ),
 }
 
 
@@ -403,3 +630,21 @@ def get_sources_by_priority(max_priority: int = 2) -> List[GuidelineSource]:
 def get_high_priority_sources() -> List[GuidelineSource]:
     """Get only the highest priority guideline sources."""
     return get_sources_by_priority(max_priority=1)
+
+
+def get_government_sources() -> List[GuidelineSource]:
+    """Get government agency sources."""
+    return [
+        source
+        for source in CLINICAL_GUIDELINE_SOURCES.values()
+        if source.organization_type == OrganizationType.GOVERNMENT
+    ]
+
+
+def get_professional_society_sources() -> List[GuidelineSource]:
+    """Get professional medical society sources."""
+    return [
+        source
+        for source in CLINICAL_GUIDELINE_SOURCES.values()
+        if source.organization_type == OrganizationType.PROFESSIONAL_SOCIETY
+    ]
