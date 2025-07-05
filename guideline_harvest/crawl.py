@@ -424,17 +424,21 @@ class GuidelineHarvester:
             # parse links from the crawled content
             if hasattr(crawl_result, "links") and crawl_result.links:
                 for link in crawl_result.links:
-                    url = link.get("href", "")
-                    text = link.get("text", "").lower()
+                    if isinstance(link, dict):
+                        url = link.get("href", "")
+                        text = link.get("text", "").lower()
+                    elif isinstance(link, str):
+                        url = link
+                        text = ""
+                    else:
+                        continue
 
-                    # filter for guideline-related links
                     if self._is_guideline_link(url, text, source):
                         # convert relative URLs to absolute
                         if url.startswith("/"):
                             url = source.base_url + url
                         elif not url.startswith("http"):
                             continue
-
                         guideline_links.append(url)
 
             # check for PDF links directly in content
@@ -588,7 +592,13 @@ class GuidelineHarvester:
         # check links
         if hasattr(crawl_result, "links") and crawl_result.links:
             for link in crawl_result.links:
-                href = link.get("href", "")
+                if isinstance(link, dict):
+                    href = link.get("href", "")
+                elif isinstance(link, str):
+                    href = link
+                else:
+                    continue
+
                 if href.lower().endswith(".pdf"):
                     if href.startswith("/"):
                         href = base_url + href
@@ -596,14 +606,7 @@ class GuidelineHarvester:
                         continue
                     pdf_urls.append(href)
 
-        # extract from content
-        if hasattr(crawl_result, "markdown"):
-            content_pdfs = self._extract_pdf_links_from_content(
-                crawl_result.markdown, base_url
-            )
-            pdf_urls.extend(content_pdfs)
-
-        return list(set(pdf_urls))  # Remove duplicates
+        return list(set(pdf_urls))  # remove duplicates
 
     async def _download_pdf(
         self, source, pdf_url: str, guideline_info: Dict[str, Any]
