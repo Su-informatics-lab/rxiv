@@ -28,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
+from config import config
 from download_metadata import fetch_all as fetch_metadata
 from download_pdfs import load_entries
 from download_pdfs import run_parallel as download_pdfs_parallel
