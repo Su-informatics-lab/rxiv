@@ -1,0 +1,84 @@
+{
+  "pipeline": {
+    "stages": ["extract", "chunk", "embed"],
+    "max_workers": 4,
+    "batch_size": 10,
+    "resume_mode": true,
+    "fail_fast": false,
+    "max_failures": 10
+  },
+  
+  "extraction": {
+    "timeout": 300,
+    "extract_tables": true,
+    "extract_figures": true,
+    "preserve_layout": true,
+    "skip_existing": true,
+    "max_retries": 3
+  },
+  
+  "chunking": {
+    "chunk_size": 512,
+    "overlap_size": 50,
+    "min_chunk_size": 100,
+    "max_chunk_size": 1000,
+    "preserve_sections": true,
+    "section_aware": true,
+    "include_section_headers": true,
+    "preserve_tables": true,
+    "preserve_figures": true,
+    "table_context_window": 200,
+    "use_semantic_chunking": true,
+    "semantic_threshold": 0.5,
+    "embedding_model": "all-MiniLM-L6-v2",
+    "create_hierarchy": true,
+    "parent_chunk_size": 2000,
+    "batch_size": 32
+  },
+  
+  "embedding": {
+    "models": {
+      "primary": "all-MiniLM-L6-v2",
+      "scientific": "allenai/scibert_scivocab_uncased",
+      "dense": "sentence-transformers/all-mpnet-base-v2"
+    },
+    "batch_size": 32,
+    "max_workers": 4,
+    "normalize_embeddings": true,
+    "cache_embeddings": true,
+    "vector_stores": ["chromadb", "faiss"],
+    "chromadb_path": "vector_db/chroma",
+    "faiss_index_type": "IVF",
+    "faiss_nlist": 100,
+    "embedding_dimension": 384,
+    "similarity_threshold": 0.5,
+    "duplicate_detection": true,
+    "save_embeddings": true,
+    "embeddings_dir": "embeddings",
+    "compression": true,
+    "detailed_metrics": true
+  },
+  
+  "output_structure": {
+    "base_dir": "processed_papers",
+    "extraction_dir": "extracted",
+    "chunking_dir": "chunked",
+    "embedding_dir": "embeddings",
+    "reports_dir": "reports"
+  },
+  
+  "quality_control": {
+    "quality_checks": true,
+    "detailed_logging": true,
+    "save_intermediate": true
+  },
+  
+  "performance": {
+    "memory_limit_gb": 8,
+    "disk_space_check": true
+  },
+  
+  "logging": {
+    "log_level": "INFO"
+  }
+}
