@@ -22,14 +22,11 @@ playwright install
 ## Usage
 
 ```bash
-# basic usage
-python crawl.py --sources high_priority
-
-# specific specialty
-python crawl.py --sources cardiology
-
-# all sources
+# all sources, by default
 python crawl.py --sources all
+
+# basic use
+python crawl.py --sources cardiology
 
 # custom settings
 python crawl.py --sources high_priority --max-concurrent 2 --delay 2.0
