@@ -26,8 +26,6 @@ python download_pdfs.py
 
 Downloaded files will be saved in the `data/` and `pdfs/` directories.
 
-## Next Steps
-You can integrate GROBID or PDFMiner for full-text extraction later.
 
 ---
 MIT License.
