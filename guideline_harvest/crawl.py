@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import time
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -353,24 +354,70 @@ class GuidelineHarvester:
                         else:
                             self.logger.warning(f"❌ Failed to download PDF: {url}")
                     else:
-                        # process regular web pages
-                        guideline_result = await self._process_guideline_page(
-                            source, url
-                        )
-                        if guideline_result:
-                            source_result["guidelines_found"].append(guideline_result)
+                        # analyze if this is a list page or single guideline page
+                        page_analysis = await self._analyze_guideline_page(source, url)
+                        
+                        if page_analysis["is_list_page"]:
+                            # This page contains multiple guidelines - extract them all
+                            if self.config.get("debug", False):
+                                self.logger.debug(f"📋 Processing list page: {url}")
+                                self.logger.debug(f"  Found {len(page_analysis['guideline_links'])} guideline links")
+                                self.logger.debug(f"  Found {len(page_analysis['pdf_links'])} direct PDF links")
+                            
+                            # Add direct PDF links
+                            for pdf_url in page_analysis["pdf_links"]:
+                                guideline_result = {
+                                    "url": pdf_url,
+                                    "title": f"PDF from {source.abbreviation} list",
+                                    "metadata": {"source": source.abbreviation, "from_list_page": True},
+                                    "pdf_urls": [pdf_url],
+                                    "content_preview": "",
+                                    "extraction_timestamp": datetime.now().isoformat(),
+                                    "word_count": 0,
+                                }
+                                source_result["guidelines_found"].append(guideline_result)
+                                
+                                # download the PDF
+                                pdf_result = await self._download_pdf(source, pdf_url, guideline_result)
+                                if pdf_result:
+                                    source_result["pdfs_downloaded"].append(pdf_result)
+                                    self.stats["pdfs_downloaded"] += 1
+                            
+                            # Process individual guideline pages found on this list page
+                            for guideline_url in page_analysis["guideline_links"][:10]:  # Limit to avoid overwhelming
+                                try:
+                                    guideline_result = await self._process_guideline_page(source, guideline_url)
+                                    if guideline_result:
+                                        source_result["guidelines_found"].append(guideline_result)
+                                        
+                                        # download PDFs if found
+                                        if guideline_result.get("pdf_urls"):
+                                            for pdf_url in guideline_result["pdf_urls"]:
+                                                pdf_result = await self._download_pdf(source, pdf_url, guideline_result)
+                                                if pdf_result:
+                                                    source_result["pdfs_downloaded"].append(pdf_result)
+                                                    self.stats["pdfs_downloaded"] += 1
+                                    
+                                    # Rate limit processing
+                                    await asyncio.sleep(self.config["request_delay"])
+                                    
+                                except Exception as e:
+                                    if self.config.get("debug", False):
+                                        self.logger.debug(f"❌ Error processing guideline from list: {str(e)}")
+                                    continue
+                        else:
+                            # Single guideline page - process normally
+                            guideline_result = await self._process_guideline_page(source, url)
+                            if guideline_result:
+                                source_result["guidelines_found"].append(guideline_result)
 
-                            # download PDFs if found
-                            if guideline_result.get("pdf_urls"):
-                                for pdf_url in guideline_result["pdf_urls"]:
-                                    pdf_result = await self._download_pdf(
-                                        source, pdf_url, guideline_result
-                                    )
-                                    if pdf_result:
-                                        source_result["pdfs_downloaded"].append(
-                                            pdf_result
-                                        )
-                                        self.stats["pdfs_downloaded"] += 1
+                                # download PDFs if found
+                                if guideline_result.get("pdf_urls"):
+                                    for pdf_url in guideline_result["pdf_urls"]:
+                                        pdf_result = await self._download_pdf(source, pdf_url, guideline_result)
+                                        if pdf_result:
+                                            source_result["pdfs_downloaded"].append(pdf_result)
+                                            self.stats["pdfs_downloaded"] += 1
 
                     self.stats["guidelines_found"] += 1
 
@@ -399,8 +446,190 @@ class GuidelineHarvester:
 
         return source_result
 
+    async def _analyze_guideline_page(self, source, url: str) -> Dict[str, Any]:
+        """Analyze if a page is a list page or single guideline page.
+        
+        Args:
+            source: GuidelineSource configuration
+            url: Page URL to analyze
+            
+        Returns:
+            Analysis results with page type and found links
+        """
+        try:
+            # Crawl the page
+            result = await self.crawler.arun(
+                url=url,
+                word_count_threshold=self.config["crawl4ai_config"]["word_count_threshold"],
+                bypass_cache=True,
+            )
+            
+            if not result.success:
+                return {
+                    "is_list_page": False,
+                    "pdf_links": [],
+                    "guideline_links": [],
+                    "confidence": 0.0
+                }
+            
+            # Extract potential links
+            pdf_links = self._find_pdf_urls(result, source.base_url)
+            guideline_links = self._extract_guideline_links(result, source)
+            
+            # Remove PDF links from guideline links to avoid duplicates
+            guideline_links = [link for link in guideline_links if not link.lower().endswith('.pdf')]
+            
+            # Heuristics to determine if this is a list page
+            content = result.markdown or ""
+            
+            # Count guideline-related terms that suggest a list/index page
+            list_indicators = [
+                "clinical practice guidelines", "practice guidelines", "recommendations",
+                "list of guidelines", "guideline library", "guideline index",
+                "all guidelines", "guidelines and statements", "clinical standards",
+                "consensus statements", "position statements", "advisory statements"
+            ]
+            
+            list_score = sum(1 for indicator in list_indicators if indicator.lower() in content.lower())
+            
+            # Check for list-like HTML structures (many links, tables, etc.)
+            html_content = getattr(result, 'html', '') or ''
+            list_html_indicators = [
+                '<table', '<ul', '<ol', '<dl',  # List structures
+                'href=', 'download', 'pdf'      # Many links
+            ]
+            
+            html_score = sum(html_content.lower().count(indicator) for indicator in list_html_indicators)
+            
+            # Decision logic
+            is_list_page = (
+                len(pdf_links) >= 3 or  # Many direct PDFs
+                len(guideline_links) >= 5 or  # Many guideline links
+                (list_score >= 2 and len(pdf_links) >= 1) or  # Strong text indicators + some PDFs
+                (html_score >= 10 and len(guideline_links) >= 2)  # Many HTML structures + some links
+            )
+            
+            confidence = min(1.0, (len(pdf_links) * 0.2 + len(guideline_links) * 0.1 + list_score * 0.3 + html_score * 0.01))
+            
+            if self.config.get("debug", False):
+                self.logger.debug(f"📊 Page analysis for {url}:")
+                self.logger.debug(f"  📄 PDFs found: {len(pdf_links)}")
+                self.logger.debug(f"  🔗 Guideline links: {len(guideline_links)}")
+                self.logger.debug(f"  📝 List text score: {list_score}")
+                self.logger.debug(f"  🏗️ HTML structure score: {html_score}")
+                self.logger.debug(f"  📋 Is list page: {is_list_page} (confidence: {confidence:.2f})")
+            
+            return {
+                "is_list_page": is_list_page,
+                "pdf_links": pdf_links,
+                "guideline_links": guideline_links,
+                "confidence": confidence
+            }
+            
+        except Exception as e:
+            if self.config.get("debug", False):
+                self.logger.debug(f"💥 Error analyzing page {url}: {type(e).__name__}: {str(e)}")
+            return {
+                "is_list_page": False,
+                "pdf_links": [],
+                "guideline_links": [],
+                "confidence": 0.0
+            }
+
+    async def _google_search(self, query: str, num_results: int = 15) -> List[str]:
+        """Perform Google search and extract result URLs.
+        
+        Args:
+            query: Search query
+            num_results: Maximum number of results to return
+            
+        Returns:
+            List of URLs from search results
+        """
+        try:
+            # Use Google search via web scraping (careful to avoid blocking)
+            search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}&num={num_results}"
+            
+            if self.config.get("debug", False):
+                self.logger.debug(f"🔍 Google search URL: {search_url}")
+            
+            # Add delay and use proper headers to avoid blocking
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+            }
+            
+            async with self.session.get(search_url, headers=headers) as response:
+                if response.status == 200:
+                    html_content = await response.text()
+                    
+                    # Extract URLs from Google search results
+                    urls = self._parse_google_results(html_content)
+                    
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"📋 Extracted {len(urls)} URLs from Google results")
+                    
+                    return urls[:num_results]
+                else:
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"❌ Google search failed with status {response.status}")
+                    return []
+                    
+        except Exception as e:
+            if self.config.get("debug", False):
+                self.logger.debug(f"💥 Google search exception: {type(e).__name__}: {str(e)}")
+            return []
+
+    def _parse_google_results(self, html_content: str) -> List[str]:
+        """Parse Google search results HTML to extract URLs.
+        
+        Args:
+            html_content: Raw HTML from Google search results
+            
+        Returns:
+            List of extracted URLs
+        """
+        import re
+        
+        urls = []
+        
+        # Regex patterns to extract URLs from Google search results
+        # Google uses various patterns, so we try multiple
+        patterns = [
+            r'<a href="/url\?q=([^&"]+)',  # Standard Google result links
+            r'<a[^>]+href="(https?://[^"]+)"[^>]*>',  # Direct links
+            r'url\?q=([^&"]+)',  # URL parameter pattern
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, html_content)
+            for match in matches:
+                # Decode URL
+                url = urllib.parse.unquote(match)
+                
+                # Filter out Google's own URLs and non-relevant results
+                if (url.startswith('http') and 
+                    'google.com' not in url and 
+                    'youtube.com' not in url and
+                    'wikipedia.org' not in url and
+                    len(url) > 20):
+                    urls.append(url)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_urls = []
+        for url in urls:
+            if url not in seen:
+                seen.add(url)
+                unique_urls.append(url)
+        
+        return unique_urls
+
     async def _discover_guideline_pages(self, source) -> List[str]:
-        """Discover guideline pages from a source using crawl4ai.
+        """Discover guideline pages using Google search.
 
         Args:
             source: GuidelineSource configuration
@@ -408,99 +637,80 @@ class GuidelineHarvester:
         Returns:
             List of URLs containing guidelines
         """
-        guideline_urls = []
-
         if self.config.get("debug", False):
             self.logger.debug(
-                f"🔍 Starting guideline discovery for {source.abbreviation}"
+                f"🔍 Starting Google-based discovery for {source.abbreviation}"
             )
             self.logger.debug(f"📂 Base URL: {source.base_url}")
-            self.logger.debug(f"🔎 Search patterns: {source.search_patterns}")
+
+        discovered_urls = []
+        
+        # Google search queries for this organization
+        domain = source.base_url.replace('https://', '').replace('http://', '')
+        search_queries = [
+            f'site:{domain} "clinical guidelines"',
+            f'site:{domain} "practice guidelines"',
+            f'site:{domain} "recommendations"',
+            f'site:{domain} "consensus statement"',
+            f'"{source.name}" guidelines filetype:pdf',
+            f'"{source.abbreviation}" clinical guidelines',
+        ]
+
+        if self.config.get("debug", False):
+            self.logger.debug(f"🔎 Google search queries: {search_queries}")
 
         try:
-            # start from base URL and search patterns
-            for i, pattern in enumerate(source.search_patterns):
-                search_url = source.base_url + pattern
-
+            for i, query in enumerate(search_queries):
                 if self.config.get("debug", False):
-                    self.logger.debug(
-                        f"🌐 Crawling pattern {i+1}/{len(source.search_patterns)}: {search_url}"
-                    )
+                    self.logger.debug(f"🌐 Google search {i+1}/{len(search_queries)}: {query}")
 
                 try:
-                    # crawl with crawl4ai
-                    result = await self.crawler.arun(
-                        url=search_url,
-                        word_count_threshold=self.config["crawl4ai_config"][
-                            "word_count_threshold"
-                        ],
-                        bypass_cache=True,
-                    )
-
-                    if result.success:
+                    # Perform Google search
+                    search_results = await self._google_search(query, num_results=15)
+                    
+                    if search_results:
+                        discovered_urls.extend(search_results)
+                        
                         if self.config.get("debug", False):
-                            self.logger.debug(f"✅ Successfully crawled {search_url}")
-                            if hasattr(result, "markdown") and result.markdown:
-                                self.logger.debug(
-                                    f"📄 Content length: {len(result.markdown)} chars"
-                                )
-                            if hasattr(result, "links") and result.links:
-                                self.logger.debug(
-                                    f"🔗 Found {len(result.links)} total links"
-                                )
-
-                        # extract links that might contain guidelines
-                        page_links = self._extract_guideline_links(result, source)
-                        guideline_urls.extend(page_links)
-
-                        if self.config.get("debug", False):
-                            self.logger.debug(
-                                f"📋 Extracted {len(page_links)} guideline links from {search_url}"
-                            )
-                            for link in page_links[:5]:  # Show first 5 links
-                                self.logger.debug(f"  📎 {link}")
-                            if len(page_links) > 5:
-                                self.logger.debug(
-                                    f"  ... and {len(page_links) - 5} more"
-                                )
-                        else:
-                            self.logger.debug(
-                                f"Found {len(page_links)} links from {search_url}"
-                            )
+                            self.logger.debug(f"📋 Found {len(search_results)} results for query: {query}")
+                            for url in search_results[:3]:  # Show first 3 results
+                                self.logger.debug(f"  📎 {url}")
+                            if len(search_results) > 3:
+                                self.logger.debug(f"  ... and {len(search_results) - 3} more")
                     else:
                         if self.config.get("debug", False):
-                            self.logger.debug(f"❌ Failed to crawl {search_url}")
-                            self.logger.debug(f"💥 Error: {result.error_message}")
+                            self.logger.debug(f"❌ No results for query: {query}")
 
-                        self.logger.warning(
-                            f"Failed to crawl {search_url}: {result.error_message}"
-                        )
-
+                    # Rate limit Google searches
+                    await asyncio.sleep(2.0)
+                    
                 except Exception as e:
                     if self.config.get("debug", False):
-                        self.logger.debug(
-                            f"💥 Exception crawling {search_url}: {type(e).__name__}: {str(e)}"
-                        )
-                    self.logger.warning(f"Error crawling {search_url}: {str(e)}")
+                        self.logger.debug(f"💥 Error in Google search: {type(e).__name__}: {str(e)}")
+                    self.logger.warning(f"Google search failed for query '{query}': {str(e)}")
                     continue
 
         except Exception as e:
             if self.config.get("debug", False):
-                self.logger.debug(
-                    f"💥 Critical error in discovery: {type(e).__name__}: {str(e)}"
-                )
-            self.logger.error(
-                f"Error discovering pages for {source.abbreviation}: {str(e)}"
-            )
+                self.logger.debug(f"💥 Critical error in Google discovery: {type(e).__name__}: {str(e)}")
+            self.logger.error(f"Error in Google discovery for {source.abbreviation}: {str(e)}")
 
-        # remove duplicates and filter
-        unique_urls = list(set(guideline_urls))
-        final_urls = unique_urls[:50]  # Limit to prevent overwhelming
+        # Remove duplicates and filter to organization's domain
+        unique_urls = []
+        seen_urls = set()
+        
+        for url in discovered_urls:
+            if url not in seen_urls and domain in url:
+                unique_urls.append(url)
+                seen_urls.add(url)
+        
+        # Limit results but be more generous since Google pre-filters relevance
+        final_urls = unique_urls[:30]
 
         if self.config.get("debug", False):
-            self.logger.debug(f"📊 Discovery summary for {source.abbreviation}:")
-            self.logger.debug(f"  🔗 Total links found: {len(guideline_urls)}")
-            self.logger.debug(f"  🎯 Unique links: {len(unique_urls)}")
+            self.logger.debug(f"📊 Google discovery summary for {source.abbreviation}:")
+            self.logger.debug(f"  🔗 Total URLs found: {len(discovered_urls)}")
+            self.logger.debug(f"  🎯 Unique URLs: {len(unique_urls)}")
             self.logger.debug(f"  📋 Final list (limited): {len(final_urls)}")
 
         return final_urls
