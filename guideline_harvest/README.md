@@ -34,7 +34,7 @@ source container_env.sh
 # inside container:
 pip install -r guideline_harvest/requirements.txt
 python -m spacy download en_core_web_sm
-playwright install  # we use isntall v1.52/1.53
+playwright install  # we use isntall v1.52.0
 ```
 
 ## Usage
