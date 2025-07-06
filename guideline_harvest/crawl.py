@@ -330,10 +330,14 @@ class GuidelineHarvester:
                         source_result["guidelines_found"].append(guideline_result)
                         
                         # download the PDF directly
+                        self.logger.info(f"💾 Attempting to download direct PDF: {url}")
                         pdf_result = await self._download_pdf(source, url, guideline_result)
                         if pdf_result:
                             source_result["pdfs_downloaded"].append(pdf_result)
                             self.stats["pdfs_downloaded"] += 1
+                            self.logger.info(f"✅ Downloaded PDF: {pdf_result['filename']}")
+                        else:
+                            self.logger.warning(f"❌ Failed to download PDF: {url}")
                     else:
                         # process regular web pages
                         guideline_result = await self._process_guideline_page(source, url)
@@ -536,19 +540,22 @@ class GuidelineHarvester:
 
         pdf_links = []
 
-        # Regex patterns for PDF links
+        # regex patterns for PDF links
         pdf_patterns = [
             r'href=["\']([^"\']*\.pdf[^"\']*)["\']',
             r"\[([^\]]*\.pdf[^\]]*)\]",
-            r"(https?://[^\s]*\.pdf[^\s]*)",
+            r"(https?://[^\s\)]*\.pdf)",
         ]
 
         for pattern in pdf_patterns:
             matches = re.findall(pattern, content, re.IGNORECASE)
             for match in matches:
                 url = match if isinstance(match, str) else match[0]
+                
+                # clean up URL - remove trailing punctuation
+                url = re.sub(r'[)\]\}>\'"]+$', '', url)
 
-                # Convert relative URLs
+                # convert relative URLs
                 if url.startswith("/"):
                     url = base_url + url
                 elif not url.startswith("http"):
