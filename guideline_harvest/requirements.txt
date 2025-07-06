@@ -64,7 +64,7 @@ packaging==25.0
 pdfminer.six==20250506
 pdfplumber==0.11.7
 pillow==10.4.0
-playwright==1.53.0
+playwright==1.52.0
 preshed==3.0.10
 propcache==0.3.2
 psutil==7.0.0
