@@ -116,7 +116,14 @@ class GuidelineHarvester:
 
         # create logger
         logger = logging.getLogger("guidelines_harvester")
-        logger.setLevel(logging.INFO)
+        
+        # set logging level based on debug flag
+        if self.config.get("debug", False):
+            logger.setLevel(logging.DEBUG)
+            console_level = logging.DEBUG
+        else:
+            logger.setLevel(logging.INFO)
+            console_level = logging.INFO
 
         # file handler
         file_handler = logging.FileHandler(log_file)
@@ -128,7 +135,7 @@ class GuidelineHarvester:
 
         # rich console handler
         console_handler = RichHandler(console=self.console, rich_tracebacks=True)
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(console_level)
 
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
@@ -392,10 +399,18 @@ class GuidelineHarvester:
         """
         guideline_urls = []
 
+        if self.config.get("debug", False):
+            self.logger.debug(f"🔍 Starting guideline discovery for {source.abbreviation}")
+            self.logger.debug(f"📂 Base URL: {source.base_url}")
+            self.logger.debug(f"🔎 Search patterns: {source.search_patterns}")
+
         try:
             # start from base URL and search patterns
-            for pattern in source.search_patterns:
+            for i, pattern in enumerate(source.search_patterns):
                 search_url = source.base_url + pattern
+
+                if self.config.get("debug", False):
+                    self.logger.debug(f"🌐 Crawling pattern {i+1}/{len(source.search_patterns)}: {search_url}")
 
                 try:
                     # crawl with crawl4ai
@@ -408,30 +423,60 @@ class GuidelineHarvester:
                     )
 
                     if result.success:
+                        if self.config.get("debug", False):
+                            self.logger.debug(f"✅ Successfully crawled {search_url}")
+                            if hasattr(result, 'markdown') and result.markdown:
+                                self.logger.debug(f"📄 Content length: {len(result.markdown)} chars")
+                            if hasattr(result, 'links') and result.links:
+                                self.logger.debug(f"🔗 Found {len(result.links)} total links")
+                        
                         # extract links that might contain guidelines
                         page_links = self._extract_guideline_links(result, source)
                         guideline_urls.extend(page_links)
 
-                        self.logger.debug(
-                            f"Found {len(page_links)} links from {search_url}"
-                        )
+                        if self.config.get("debug", False):
+                            self.logger.debug(f"📋 Extracted {len(page_links)} guideline links from {search_url}")
+                            for link in page_links[:5]:  # Show first 5 links
+                                self.logger.debug(f"  📎 {link}")
+                            if len(page_links) > 5:
+                                self.logger.debug(f"  ... and {len(page_links) - 5} more")
+                        else:
+                            self.logger.debug(
+                                f"Found {len(page_links)} links from {search_url}"
+                            )
                     else:
+                        if self.config.get("debug", False):
+                            self.logger.debug(f"❌ Failed to crawl {search_url}")
+                            self.logger.debug(f"💥 Error: {result.error_message}")
+                        
                         self.logger.warning(
                             f"Failed to crawl {search_url}: {result.error_message}"
                         )
 
                 except Exception as e:
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"💥 Exception crawling {search_url}: {type(e).__name__}: {str(e)}")
                     self.logger.warning(f"Error crawling {search_url}: {str(e)}")
                     continue
 
         except Exception as e:
+            if self.config.get("debug", False):
+                self.logger.debug(f"💥 Critical error in discovery: {type(e).__name__}: {str(e)}")
             self.logger.error(
                 f"Error discovering pages for {source.abbreviation}: {str(e)}"
             )
 
         # remove duplicates and filter
-        guideline_urls = list(set(guideline_urls))
-        return guideline_urls[:50]  # Limit to prevent overwhelming
+        unique_urls = list(set(guideline_urls))
+        final_urls = unique_urls[:50]  # Limit to prevent overwhelming
+        
+        if self.config.get("debug", False):
+            self.logger.debug(f"📊 Discovery summary for {source.abbreviation}:")
+            self.logger.debug(f"  🔗 Total links found: {len(guideline_urls)}")
+            self.logger.debug(f"  🎯 Unique links: {len(unique_urls)}")
+            self.logger.debug(f"  📋 Final list (limited): {len(final_urls)}")
+            
+        return final_urls
 
     def _extract_guideline_links(self, crawl_result, source) -> List[str]:
         """Extract guideline-related links from crawl result.
@@ -547,21 +592,38 @@ class GuidelineHarvester:
             r"(https?://[^\s\)]*\.pdf)",
         ]
 
+        if self.config.get("debug", False):
+            self.logger.debug(f"🔍 Extracting PDF links from content ({len(content)} chars)")
+
         for pattern in pdf_patterns:
             matches = re.findall(pattern, content, re.IGNORECASE)
+            if self.config.get("debug", False) and matches:
+                self.logger.debug(f"📎 Pattern '{pattern}' found {len(matches)} matches")
+            
             for match in matches:
                 url = match if isinstance(match, str) else match[0]
                 
                 # clean up URL - remove trailing punctuation
+                original_url = url
                 url = re.sub(r'[)\]\}>\'"]+$', '', url)
+                
+                if self.config.get("debug", False) and original_url != url:
+                    self.logger.debug(f"🧹 Cleaned URL: '{original_url}' -> '{url}'")
 
                 # convert relative URLs
                 if url.startswith("/"):
                     url = base_url + url
                 elif not url.startswith("http"):
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"❌ Skipping invalid URL: '{url}'")
                     continue
 
                 pdf_links.append(url)
+                if self.config.get("debug", False):
+                    self.logger.debug(f"✅ Added PDF link: {url}")
+
+        if self.config.get("debug", False):
+            self.logger.debug(f"📋 Total PDF links found: {len(pdf_links)}")
 
         return pdf_links
 
@@ -657,15 +719,24 @@ class GuidelineHarvester:
             PDF processing result
         """
         try:
+            if self.config.get("debug", False):
+                self.logger.debug(f"📥 Attempting to download PDF: {pdf_url}")
+            
             # generate filename
             filename = self._generate_pdf_filename(source, pdf_url, guideline_info)
             pdf_path = (
                 Path(self.config["output_dir"]) / self.config["pdf_dir"] / filename
             )
 
+            if self.config.get("debug", False):
+                self.logger.debug(f"📁 Target filename: {filename}")
+
             # skip if already exists and resume mode is enabled
             if self.config["resume_mode"] and pdf_path.exists():
-                self.logger.debug(f"PDF already exists: {filename}")
+                if self.config.get("debug", False):
+                    self.logger.debug(f"⏭️ PDF already exists (resume mode): {filename}")
+                else:
+                    self.logger.debug(f"PDF already exists: {filename}")
                 return {
                     "url": pdf_url,
                     "filename": filename,
@@ -674,26 +745,45 @@ class GuidelineHarvester:
                 }
 
             # download PDF
+            if self.config.get("debug", False):
+                self.logger.debug(f"🌐 Making HTTP request to: {pdf_url}")
+            
             async with self.session.get(pdf_url) as response:
+                if self.config.get("debug", False):
+                    self.logger.debug(f"📊 HTTP Response: {response.status} for {pdf_url}")
+                    self.logger.debug(f"🔗 Response headers: {dict(response.headers)}")
+                
                 if response.status == 200:
                     content = await response.read()
 
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"📦 Downloaded {len(content)} bytes")
+
                     # Validate PDF size
                     if len(content) < self.config["min_pdf_size"]:
+                        if self.config.get("debug", False):
+                            self.logger.debug(f"❌ PDF too small: {len(content)} bytes < {self.config['min_pdf_size']} bytes")
                         self.logger.warning(f"PDF too small: {pdf_url}")
                         return None
 
                     if len(content) > self.config["max_pdf_size"]:
+                        if self.config.get("debug", False):
+                            self.logger.debug(f"❌ PDF too large: {len(content)} bytes > {self.config['max_pdf_size']} bytes")
                         self.logger.warning(f"PDF too large: {pdf_url}")
                         return None
 
                     # save PDF
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"💾 Saving PDF to: {pdf_path}")
+                    
                     with open(pdf_path, "wb") as f:
                         f.write(content)
 
                     # process PDF for additional metadata
                     pdf_metadata = None
                     if self.config["validate_pdfs"]:
+                        if self.config.get("debug", False):
+                            self.logger.debug(f"🔍 Processing PDF metadata for: {filename}")
                         pdf_metadata = await self.pdf_processor.process_pdf(
                             pdf_path, guideline_info
                         )
@@ -714,6 +804,10 @@ class GuidelineHarvester:
                         / self.config["metadata_dir"]
                         / f"{filename}.json"
                     )
+                    
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"📄 Saving metadata to: {metadata_path}")
+                    
                     with open(metadata_path, "w", encoding="utf-8") as f:
                         json.dump(
                             {
@@ -727,12 +821,26 @@ class GuidelineHarvester:
 
                     self.stats["metadata_extracted"] += 1
 
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"✅ Successfully downloaded and processed: {filename}")
+
                     return result
                 else:
+                    if self.config.get("debug", False):
+                        self.logger.debug(f"❌ HTTP Error {response.status} for {pdf_url}")
+                        if response.status == 403:
+                            self.logger.debug(f"🚫 403 Forbidden - Possible paywall or access restriction")
+                        elif response.status == 404:
+                            self.logger.debug(f"🔍 404 Not Found - PDF may have been moved or deleted")
+                        elif response.status == 429:
+                            self.logger.debug(f"⏱️ 429 Rate Limited - Too many requests")
+                    
                     self.logger.warning(f"HTTP {response.status} for {pdf_url}")
                     return None
 
         except Exception as e:
+            if self.config.get("debug", False):
+                self.logger.debug(f"💥 Exception during PDF download: {type(e).__name__}: {str(e)}")
             self.logger.error(f"Error downloading PDF {pdf_url}: {str(e)}")
             return None
 
@@ -860,7 +968,8 @@ class GuidelineHarvester:
 @click.option(
     "--validate-pdfs/--no-validate-pdfs", default=True, help="Validate downloaded PDFs"
 )
-def main(sources, max_concurrent, delay, output_dir, resume, validate_pdfs):
+@click.option("--debug", is_flag=True, help="Enable debug logging for troubleshooting")
+def main(sources, max_concurrent, delay, output_dir, resume, validate_pdfs, debug):
     """Entry point for CLI, dispatches async runner."""
     config = {
         "max_concurrent_sources": max_concurrent,
@@ -868,6 +977,7 @@ def main(sources, max_concurrent, delay, output_dir, resume, validate_pdfs):
         "output_dir": output_dir,
         "resume_mode": resume,
         "validate_pdfs": validate_pdfs,
+        "debug": debug,
     }
     asyncio.run(run(sources, config))
 
