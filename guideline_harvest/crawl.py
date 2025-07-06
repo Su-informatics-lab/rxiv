@@ -914,13 +914,13 @@ class GuidelineHarvester:
                 # remove .pdf extension and use as title
                 url_title = url_filename[:-4]
                 # clean URL-derived title
-                url_title = re.sub(r"[^a-zA-Z0-9\s-_]", "", url_title)
+                url_title = re.sub(r"[^a-zA-Z0-9\s_-]", "", url_title)
                 url_title = re.sub(r"[-_]+", "_", url_title)
                 if url_title and len(url_title) > 3:  # meaningful name
                     title = url_title
 
         # clean title for filename
-        clean_title = re.sub(r"[^a-zA-Z0-9\s-]", "", title)
+        clean_title = re.sub(r"[^a-zA-Z0-9\s_-]", "", title)
         clean_title = re.sub(r"\s+", "_", clean_title.strip())
         clean_title = clean_title[:50]  # Limit length
 
@@ -941,7 +941,7 @@ class GuidelineHarvester:
             url_parts = pdf_url.split("/")
             for part in reversed(url_parts):
                 if part and not part.endswith(".pdf"):
-                    clean_part = re.sub(r"[^a-zA-Z0-9-]", "", part)
+                    clean_part = re.sub(r"[^a-zA-Z0-9_-]", "", part)
                     if clean_part and len(clean_part) > 3:
                         clean_title = clean_part[:20]
                         break
