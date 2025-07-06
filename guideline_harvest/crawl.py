@@ -315,21 +315,42 @@ class GuidelineHarvester:
             # process each guideline page
             for url in guideline_urls:
                 try:
-                    guideline_result = await self._process_guideline_page(source, url)
-                    if guideline_result:
+                    # handle direct PDF links
+                    if url.lower().endswith('.pdf'):
+                        # create minimal guideline info for direct PDF
+                        guideline_result = {
+                            "url": url,
+                            "title": f"Direct PDF from {source.abbreviation}",
+                            "metadata": {"source": source.abbreviation, "direct_pdf": True},
+                            "pdf_urls": [url],
+                            "content_preview": "",
+                            "extraction_timestamp": datetime.now().isoformat(),
+                            "word_count": 0,
+                        }
                         source_result["guidelines_found"].append(guideline_result)
+                        
+                        # download the PDF directly
+                        pdf_result = await self._download_pdf(source, url, guideline_result)
+                        if pdf_result:
+                            source_result["pdfs_downloaded"].append(pdf_result)
+                            self.stats["pdfs_downloaded"] += 1
+                    else:
+                        # process regular web pages
+                        guideline_result = await self._process_guideline_page(source, url)
+                        if guideline_result:
+                            source_result["guidelines_found"].append(guideline_result)
 
-                        # download PDFs if found
-                        if guideline_result.get("pdf_urls"):
-                            for pdf_url in guideline_result["pdf_urls"]:
-                                pdf_result = await self._download_pdf(
-                                    source, pdf_url, guideline_result
-                                )
-                                if pdf_result:
-                                    source_result["pdfs_downloaded"].append(pdf_result)
-                                    self.stats["pdfs_downloaded"] += 1
+                            # download PDFs if found
+                            if guideline_result.get("pdf_urls"):
+                                for pdf_url in guideline_result["pdf_urls"]:
+                                    pdf_result = await self._download_pdf(
+                                        source, pdf_url, guideline_result
+                                    )
+                                    if pdf_result:
+                                        source_result["pdfs_downloaded"].append(pdf_result)
+                                        self.stats["pdfs_downloaded"] += 1
 
-                        self.stats["guidelines_found"] += 1
+                    self.stats["guidelines_found"] += 1
 
                     # respect rate limiting
                     await asyncio.sleep(self.config["request_delay"])
@@ -605,6 +626,13 @@ class GuidelineHarvester:
                     elif not href.startswith("http"):
                         continue
                     pdf_urls.append(href)
+
+        # extract from content
+        if hasattr(crawl_result, "markdown") and crawl_result.markdown:
+            content_pdfs = self._extract_pdf_links_from_content(
+                crawl_result.markdown, base_url
+            )
+            pdf_urls.extend(content_pdfs)
 
         return list(set(pdf_urls))  # remove duplicates
 
