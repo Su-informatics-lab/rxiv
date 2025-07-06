@@ -116,7 +116,7 @@ class GuidelineHarvester:
 
         # create logger
         logger = logging.getLogger("guidelines_harvester")
-        
+
         # set logging level based on debug flag
         if self.config.get("debug", False):
             logger.setLevel(logging.DEBUG)
@@ -323,31 +323,40 @@ class GuidelineHarvester:
             for url in guideline_urls:
                 try:
                     # handle direct PDF links
-                    if url.lower().endswith('.pdf'):
+                    if url.lower().endswith(".pdf"):
                         # create minimal guideline info for direct PDF
                         guideline_result = {
                             "url": url,
                             "title": f"Direct PDF from {source.abbreviation}",
-                            "metadata": {"source": source.abbreviation, "direct_pdf": True},
+                            "metadata": {
+                                "source": source.abbreviation,
+                                "direct_pdf": True,
+                            },
                             "pdf_urls": [url],
                             "content_preview": "",
                             "extraction_timestamp": datetime.now().isoformat(),
                             "word_count": 0,
                         }
                         source_result["guidelines_found"].append(guideline_result)
-                        
+
                         # download the PDF directly
                         self.logger.info(f"💾 Attempting to download direct PDF: {url}")
-                        pdf_result = await self._download_pdf(source, url, guideline_result)
+                        pdf_result = await self._download_pdf(
+                            source, url, guideline_result
+                        )
                         if pdf_result:
                             source_result["pdfs_downloaded"].append(pdf_result)
                             self.stats["pdfs_downloaded"] += 1
-                            self.logger.info(f"✅ Downloaded PDF: {pdf_result['filename']}")
+                            self.logger.info(
+                                f"✅ Downloaded PDF: {pdf_result['filename']}"
+                            )
                         else:
                             self.logger.warning(f"❌ Failed to download PDF: {url}")
                     else:
                         # process regular web pages
-                        guideline_result = await self._process_guideline_page(source, url)
+                        guideline_result = await self._process_guideline_page(
+                            source, url
+                        )
                         if guideline_result:
                             source_result["guidelines_found"].append(guideline_result)
 
@@ -358,7 +367,9 @@ class GuidelineHarvester:
                                         source, pdf_url, guideline_result
                                     )
                                     if pdf_result:
-                                        source_result["pdfs_downloaded"].append(pdf_result)
+                                        source_result["pdfs_downloaded"].append(
+                                            pdf_result
+                                        )
                                         self.stats["pdfs_downloaded"] += 1
 
                     self.stats["guidelines_found"] += 1
@@ -400,7 +411,9 @@ class GuidelineHarvester:
         guideline_urls = []
 
         if self.config.get("debug", False):
-            self.logger.debug(f"🔍 Starting guideline discovery for {source.abbreviation}")
+            self.logger.debug(
+                f"🔍 Starting guideline discovery for {source.abbreviation}"
+            )
             self.logger.debug(f"📂 Base URL: {source.base_url}")
             self.logger.debug(f"🔎 Search patterns: {source.search_patterns}")
 
@@ -410,7 +423,9 @@ class GuidelineHarvester:
                 search_url = source.base_url + pattern
 
                 if self.config.get("debug", False):
-                    self.logger.debug(f"🌐 Crawling pattern {i+1}/{len(source.search_patterns)}: {search_url}")
+                    self.logger.debug(
+                        f"🌐 Crawling pattern {i+1}/{len(source.search_patterns)}: {search_url}"
+                    )
 
                 try:
                     # crawl with crawl4ai
@@ -425,21 +440,29 @@ class GuidelineHarvester:
                     if result.success:
                         if self.config.get("debug", False):
                             self.logger.debug(f"✅ Successfully crawled {search_url}")
-                            if hasattr(result, 'markdown') and result.markdown:
-                                self.logger.debug(f"📄 Content length: {len(result.markdown)} chars")
-                            if hasattr(result, 'links') and result.links:
-                                self.logger.debug(f"🔗 Found {len(result.links)} total links")
-                        
+                            if hasattr(result, "markdown") and result.markdown:
+                                self.logger.debug(
+                                    f"📄 Content length: {len(result.markdown)} chars"
+                                )
+                            if hasattr(result, "links") and result.links:
+                                self.logger.debug(
+                                    f"🔗 Found {len(result.links)} total links"
+                                )
+
                         # extract links that might contain guidelines
                         page_links = self._extract_guideline_links(result, source)
                         guideline_urls.extend(page_links)
 
                         if self.config.get("debug", False):
-                            self.logger.debug(f"📋 Extracted {len(page_links)} guideline links from {search_url}")
+                            self.logger.debug(
+                                f"📋 Extracted {len(page_links)} guideline links from {search_url}"
+                            )
                             for link in page_links[:5]:  # Show first 5 links
                                 self.logger.debug(f"  📎 {link}")
                             if len(page_links) > 5:
-                                self.logger.debug(f"  ... and {len(page_links) - 5} more")
+                                self.logger.debug(
+                                    f"  ... and {len(page_links) - 5} more"
+                                )
                         else:
                             self.logger.debug(
                                 f"Found {len(page_links)} links from {search_url}"
@@ -448,20 +471,24 @@ class GuidelineHarvester:
                         if self.config.get("debug", False):
                             self.logger.debug(f"❌ Failed to crawl {search_url}")
                             self.logger.debug(f"💥 Error: {result.error_message}")
-                        
+
                         self.logger.warning(
                             f"Failed to crawl {search_url}: {result.error_message}"
                         )
 
                 except Exception as e:
                     if self.config.get("debug", False):
-                        self.logger.debug(f"💥 Exception crawling {search_url}: {type(e).__name__}: {str(e)}")
+                        self.logger.debug(
+                            f"💥 Exception crawling {search_url}: {type(e).__name__}: {str(e)}"
+                        )
                     self.logger.warning(f"Error crawling {search_url}: {str(e)}")
                     continue
 
         except Exception as e:
             if self.config.get("debug", False):
-                self.logger.debug(f"💥 Critical error in discovery: {type(e).__name__}: {str(e)}")
+                self.logger.debug(
+                    f"💥 Critical error in discovery: {type(e).__name__}: {str(e)}"
+                )
             self.logger.error(
                 f"Error discovering pages for {source.abbreviation}: {str(e)}"
             )
@@ -469,13 +496,13 @@ class GuidelineHarvester:
         # remove duplicates and filter
         unique_urls = list(set(guideline_urls))
         final_urls = unique_urls[:50]  # Limit to prevent overwhelming
-        
+
         if self.config.get("debug", False):
             self.logger.debug(f"📊 Discovery summary for {source.abbreviation}:")
             self.logger.debug(f"  🔗 Total links found: {len(guideline_urls)}")
             self.logger.debug(f"  🎯 Unique links: {len(unique_urls)}")
             self.logger.debug(f"  📋 Final list (limited): {len(final_urls)}")
-            
+
         return final_urls
 
     def _extract_guideline_links(self, crawl_result, source) -> List[str]:
@@ -593,20 +620,24 @@ class GuidelineHarvester:
         ]
 
         if self.config.get("debug", False):
-            self.logger.debug(f"🔍 Extracting PDF links from content ({len(content)} chars)")
+            self.logger.debug(
+                f"🔍 Extracting PDF links from content ({len(content)} chars)"
+            )
 
         for pattern in pdf_patterns:
             matches = re.findall(pattern, content, re.IGNORECASE)
             if self.config.get("debug", False) and matches:
-                self.logger.debug(f"📎 Pattern '{pattern}' found {len(matches)} matches")
-            
+                self.logger.debug(
+                    f"📎 Pattern '{pattern}' found {len(matches)} matches"
+                )
+
             for match in matches:
                 url = match if isinstance(match, str) else match[0]
-                
+
                 # clean up URL - remove trailing punctuation
                 original_url = url
-                url = re.sub(r'[)\]\}>\'"]+$', '', url)
-                
+                url = re.sub(r'[)\]\}>\'"]+$', "", url)
+
                 if self.config.get("debug", False) and original_url != url:
                     self.logger.debug(f"🧹 Cleaned URL: '{original_url}' -> '{url}'")
 
@@ -721,7 +752,7 @@ class GuidelineHarvester:
         try:
             if self.config.get("debug", False):
                 self.logger.debug(f"📥 Attempting to download PDF: {pdf_url}")
-            
+
             # generate filename
             filename = self._generate_pdf_filename(source, pdf_url, guideline_info)
             pdf_path = (
@@ -747,12 +778,14 @@ class GuidelineHarvester:
             # download PDF
             if self.config.get("debug", False):
                 self.logger.debug(f"🌐 Making HTTP request to: {pdf_url}")
-            
+
             async with self.session.get(pdf_url) as response:
                 if self.config.get("debug", False):
-                    self.logger.debug(f"📊 HTTP Response: {response.status} for {pdf_url}")
+                    self.logger.debug(
+                        f"📊 HTTP Response: {response.status} for {pdf_url}"
+                    )
                     self.logger.debug(f"🔗 Response headers: {dict(response.headers)}")
-                
+
                 if response.status == 200:
                     content = await response.read()
 
@@ -762,20 +795,24 @@ class GuidelineHarvester:
                     # Validate PDF size
                     if len(content) < self.config["min_pdf_size"]:
                         if self.config.get("debug", False):
-                            self.logger.debug(f"❌ PDF too small: {len(content)} bytes < {self.config['min_pdf_size']} bytes")
+                            self.logger.debug(
+                                f"❌ PDF too small: {len(content)} bytes < {self.config['min_pdf_size']} bytes"
+                            )
                         self.logger.warning(f"PDF too small: {pdf_url}")
                         return None
 
                     if len(content) > self.config["max_pdf_size"]:
                         if self.config.get("debug", False):
-                            self.logger.debug(f"❌ PDF too large: {len(content)} bytes > {self.config['max_pdf_size']} bytes")
+                            self.logger.debug(
+                                f"❌ PDF too large: {len(content)} bytes > {self.config['max_pdf_size']} bytes"
+                            )
                         self.logger.warning(f"PDF too large: {pdf_url}")
                         return None
 
                     # save PDF
                     if self.config.get("debug", False):
                         self.logger.debug(f"💾 Saving PDF to: {pdf_path}")
-                    
+
                     with open(pdf_path, "wb") as f:
                         f.write(content)
 
@@ -783,7 +820,9 @@ class GuidelineHarvester:
                     pdf_metadata = None
                     if self.config["validate_pdfs"]:
                         if self.config.get("debug", False):
-                            self.logger.debug(f"🔍 Processing PDF metadata for: {filename}")
+                            self.logger.debug(
+                                f"🔍 Processing PDF metadata for: {filename}"
+                            )
                         pdf_metadata = await self.pdf_processor.process_pdf(
                             pdf_path, guideline_info
                         )
@@ -804,10 +843,10 @@ class GuidelineHarvester:
                         / self.config["metadata_dir"]
                         / f"{filename}.json"
                     )
-                    
+
                     if self.config.get("debug", False):
                         self.logger.debug(f"📄 Saving metadata to: {metadata_path}")
-                    
+
                     with open(metadata_path, "w", encoding="utf-8") as f:
                         json.dump(
                             {
@@ -822,25 +861,35 @@ class GuidelineHarvester:
                     self.stats["metadata_extracted"] += 1
 
                     if self.config.get("debug", False):
-                        self.logger.debug(f"✅ Successfully downloaded and processed: {filename}")
+                        self.logger.debug(
+                            f"✅ Successfully downloaded and processed: {filename}"
+                        )
 
                     return result
                 else:
                     if self.config.get("debug", False):
-                        self.logger.debug(f"❌ HTTP Error {response.status} for {pdf_url}")
+                        self.logger.debug(
+                            f"❌ HTTP Error {response.status} for {pdf_url}"
+                        )
                         if response.status == 403:
-                            self.logger.debug(f"🚫 403 Forbidden - Possible paywall or access restriction")
+                            self.logger.debug(
+                                f"🚫 403 Forbidden - Possible paywall or access restriction"
+                            )
                         elif response.status == 404:
-                            self.logger.debug(f"🔍 404 Not Found - PDF may have been moved or deleted")
+                            self.logger.debug(
+                                f"🔍 404 Not Found - PDF may have been moved or deleted"
+                            )
                         elif response.status == 429:
                             self.logger.debug(f"⏱️ 429 Rate Limited - Too many requests")
-                    
+
                     self.logger.warning(f"HTTP {response.status} for {pdf_url}")
                     return None
 
         except Exception as e:
             if self.config.get("debug", False):
-                self.logger.debug(f"💥 Exception during PDF download: {type(e).__name__}: {str(e)}")
+                self.logger.debug(
+                    f"💥 Exception during PDF download: {type(e).__name__}: {str(e)}"
+                )
             self.logger.error(f"Error downloading PDF {pdf_url}: {str(e)}")
             return None
 
@@ -849,9 +898,26 @@ class GuidelineHarvester:
     ) -> str:
         """Generate a standardized filename for the PDF."""
         import re
+        from urllib.parse import urlparse
 
         # extract title from guideline info
         title = guideline_info.get("title", "unknown")
+
+        # if title is generic or unknown, try to extract meaningful name from URL
+        if title in ["unknown", "Unknown Title", "Direct PDF", ""] or title.startswith(
+            "Direct PDF from"
+        ):
+            # extract filename from URL
+            parsed_url = urlparse(pdf_url)
+            url_filename = parsed_url.path.split("/")[-1]
+            if url_filename and url_filename.endswith(".pdf"):
+                # remove .pdf extension and use as title
+                url_title = url_filename[:-4]
+                # clean URL-derived title
+                url_title = re.sub(r"[^a-zA-Z0-9\s-_]", "", url_title)
+                url_title = re.sub(r"[-_]+", "_", url_title)
+                if url_title and len(url_title) > 3:  # meaningful name
+                    title = url_title
 
         # clean title for filename
         clean_title = re.sub(r"[^a-zA-Z0-9\s-]", "", title)
@@ -868,6 +934,24 @@ class GuidelineHarvester:
                     if year_match:
                         year = f"_{year_match.group(1)}"
                         break
+
+        # if still no meaningful title, extract from URL path
+        if clean_title in ["unknown", ""] or len(clean_title) < 3:
+            # try to get a meaningful identifier from URL
+            url_parts = pdf_url.split("/")
+            for part in reversed(url_parts):
+                if part and not part.endswith(".pdf"):
+                    clean_part = re.sub(r"[^a-zA-Z0-9-]", "", part)
+                    if clean_part and len(clean_part) > 3:
+                        clean_title = clean_part[:20]
+                        break
+
+            # fallback to simple hash if still no good name
+            if clean_title in ["unknown", ""] or len(clean_title) < 3:
+                import hashlib
+
+                url_hash = hashlib.md5(pdf_url.encode()).hexdigest()[:8]
+                clean_title = f"pdf_{url_hash}"
 
         # construct filename
         filename = f"{source.abbreviation}_{clean_title}{year}.pdf"
